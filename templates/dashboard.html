@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block titulo %}Inicio - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Inicio</h1>
+    <p class="pagina__sub">Asi va el negocio hoy, {{ hoy_bonito }}.</p>
+  </div>
+  <div class="pagina__acciones">
+    <a class="boton" href="{{ url_for('venta_nueva') }}">
+      <svg><use href="#i-venta"/></svg> Registrar venta
+    </a>
+    <a class="boton boton--secundario" href="{{ url_for('gasto_nuevo') }}">
+      <svg><use href="#i-gasto"/></svg> Registrar gasto
+    </a>
+  </div>
+</div>
+
+<!-- ===== Tarjetas de resumen ===== -->
+<section class="resumen resumen--cuatro">
+  <a class="kpi kpi--destacada aparece" href="{{ url_for('historial', tipo='ingreso') }}"
+     style="animation-delay: 0ms">
+    <div class="kpi__cabeza">
+      <span class="kpi__etiqueta">Ventas de hoy</span>
+      <span class="flecha-tarjeta"><svg><use href="#i-flecha-arriba"/></svg></span>
+    </div>
+    <span class="kpi__numero" data-contar="{{ resumen_hoy.ventas|round|int }}">{{ resumen_hoy.ventas|pesos }}</span>
+    <div class="kpi__pie">
+      Semana: <span class="kpi__chip">{{ resumen_semana.ventas|pesos }}</span>
+    </div>
+  </a>
+
+  <a class="kpi kpi--gasto aparece" href="{{ url_for('historial', tipo='gasto') }}"
+     style="animation-delay: 70ms">
+    <div class="kpi__cabeza">
+      <span class="kpi__etiqueta">Gastos de hoy</span>
+      <span class="flecha-tarjeta"><svg><use href="#i-flecha-arriba"/></svg></span>
+    </div>
+    <span class="kpi__numero" data-contar="{{ resumen_hoy.gastos|round|int }}">{{ resumen_hoy.gastos|pesos }}</span>
+    <div class="kpi__pie">
+      Semana: <span class="kpi__chip kpi__chip--baja">{{ resumen_semana.gastos|pesos }}</span>
+    </div>
+  </a>
+
+  <a class="kpi {{ 'kpi--positivo' if resumen_hoy.balance >= 0 else 'kpi--negativo' }} aparece"
+     href="{{ url_for('reportes') }}" style="animation-delay: 140ms">
+    <div class="kpi__cabeza">
+      <span class="kpi__etiqueta">Te queda hoy</span>
+      <span class="flecha-tarjeta"><svg><use href="#i-flecha-arriba"/></svg></span>
+    </div>
+    <span class="kpi__numero" data-contar="{{ resumen_hoy.balance|round|int }}">{{ resumen_hoy.balance|pesos }}</span>
+    <div class="kpi__pie">
+      {% if resumen_hoy.balance >= 0 %}Ventas menos gastos{% else %}Hoy gastaste mas de lo que vendiste{% endif %}
+    </div>
+  </a>
+
+  <a class="kpi kpi--fiado aparece" href="{{ url_for('fiados') }}" style="animation-delay: 210ms">
+    <div class="kpi__cabeza">
+      <span class="kpi__etiqueta">Te deben</span>
+      <span class="flecha-tarjeta"><svg><use href="#i-flecha-arriba"/></svg></span>
+    </div>
+    <span class="kpi__numero" data-contar="{{ por_cobrar|round|int }}">{{ por_cobrar|pesos }}</span>
+    <div class="kpi__pie">
+      {% if cuantos_deben %}{{ cuantos_deben }} persona{{ 's' if cuantos_deben != 1 else '' }} por cobrar{% else %}Nadie te debe nada{% endif %}
+    </div>
+  </a>
+</section>
+
+<!-- ===== Grafica + medidor ===== -->
+<div class="rejilla rejilla--2-1">
+  <div class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">Ventas de los ultimos 7 dias</h2>
+      <a class="boton boton--secundario boton--pequeno" href="{{ url_for('reportes') }}">Ver reportes</a>
+    </div>
+
+    <div class="grafica">
+      {% for dia in serie %}
+        <div class="grafica__dia {% if dia.es_hoy %}grafica__dia--hoy{% endif %}">
+          <div class="grafica__barra">
+            {% if dia.ventas > 0 %}
+              <span class="grafica__globo">{{ dia.ventas|pesos }}</span>
+              <div class="grafica__relleno"
+                   style="--alto: {{ (dia.ventas / tope_grafica * 100)|round(1) }}%;
+                          animation-delay: {{ loop.index0 * 80 }}ms"></div>
+            {% endif %}
+          </div>
+          <span class="grafica__etiqueta">{{ dia.etiqueta }}</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="leyenda">
+      <span class="leyenda__item"><span class="leyenda__color leyenda__color--venta"></span> Ventas del dia</span>
+      <span class="leyenda__item"><span class="leyenda__color leyenda__color--vacio"></span> Dia sin ventas</span>
+      <span class="leyenda__item" style="margin-left:auto">
+        Total de la semana: <strong>{{ resumen_semana.ventas|pesos }}</strong>
+      </span>
+    </div>
+  </div>
+
+  <div class="columna">
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Lo que te queda este mes</h2>
+      </div>
+
+      <div class="medidor">
+        <div class="medidor__grafico">
+          <svg class="medidor__svg" viewBox="0 0 220 128">
+            <defs>
+              <linearGradient id="degradadoMedidor" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#4bbd88"/>
+                <stop offset="100%" stop-color="#14603f"/>
+              </linearGradient>
+            </defs>
+            <!-- Semicirculo: va de izquierda a derecha por arriba. -->
+            <path class="medidor__pista" d="M 18 118 A 92 92 0 0 1 202 118"/>
+            <path class="medidor__valor" d="M 18 118 A 92 92 0 0 1 202 118"
+                  style="--largo: 289;
+                         stroke-dasharray: 289;
+                         stroke-dashoffset: {{ (289 * (100 - margen_visible) / 100)|round(1) }};"/>
+          </svg>
+          <div class="medidor__centro">
+            <div class="medidor__numero">{{ margen_visible }}%</div>
+          </div>
+        </div>
+        <p class="medidor__texto">
+          {% if resumen_mes.ventas > 0 %}
+            De cada $100 que vendiste este mes, te quedan ${{ margen_visible }}.
+          {% else %}
+            Todavia no hay ventas este mes.
+          {% endif %}
+        </p>
+      </div>
+
+      <div class="leyenda">
+        <span class="leyenda__item"><span class="leyenda__color leyenda__color--venta"></span>
+          Vendiste <strong>{{ resumen_mes.ventas|pesos }}</strong></span>
+        <span class="leyenda__item"><span class="leyenda__color leyenda__color--gasto"></span>
+          Gastaste <strong>{{ resumen_mes.gastos|pesos }}</strong></span>
+      </div>
+    </div>
+
+    <div class="tarjeta destacado-oscuro">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Menu de hoy</h2>
+        {% if precio_hoy %}<span class="badge badge--venta">{{ precio_hoy|pesos }}</span>{% endif %}
+      </div>
+      {% if grupos_menu_hoy %}
+        <ul class="menu-resumen">
+          {% for grupo in grupos_menu_hoy %}
+            {% set disponibles = grupo.platos|selectattr('disponible')|list %}
+            {% if disponibles %}
+              <li>
+                <span class="menu-resumen__grupo">{{ grupo.etiqueta }}</span>
+                <span class="menu-resumen__platos">
+                  {{ disponibles|map(attribute='nombre')|join(', ') }}
+                </span>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+        <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; position:relative; z-index:1">
+          <a class="boton boton--whatsapp" href="{{ url_for('menu_dia') }}">
+            <svg><use href="#i-whatsapp"/></svg> Mandarlo
+          </a>
+          <a class="boton boton--secundario" href="{{ url_for('menu_dia') }}">Cambiarlo</a>
+        </div>
+      {% else %}
+        <p class="ayuda">Todavia no has armado el menu de hoy. Armalo y lo puedes mandar por WhatsApp de una vez.</p>
+        <div style="margin-top:18px; position:relative; z-index:1">
+          <a class="boton boton--whatsapp" href="{{ url_for('menu_dia') }}">Armar el menu</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ===== Ultimos movimientos + quien debe ===== -->
+<div class="rejilla rejilla--1-1">
+  <div class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">Ultimos movimientos</h2>
+      <a class="boton boton--secundario boton--pequeno" href="{{ url_for('historial') }}">Ver todo</a>
+    </div>
+
+    {% if ultimos_movimientos %}
+      <div class="lista">
+        {% for m in ultimos_movimientos %}
+          <div class="lista__fila">
+            <span class="lista__icono lista__icono--{{ 'venta' if m.tipo == 'ingreso' else 'gasto' }}">
+              <svg><use href="#i-{{ 'venta' if m.tipo == 'ingreso' else 'gasto' }}"/></svg>
+            </span>
+            <div class="lista__cuerpo">
+              <div class="lista__titulo">{{ categorias_por_valor.get(m.categoria, m.categoria) }}</div>
+              <div class="lista__sub">
+                {{ m.fecha|fecha_bonita }}{% if m.descripcion %} · {{ m.descripcion }}{% endif %}
+              </div>
+            </div>
+            <span class="lista__monto lista__monto--{{ 'venta' if m.tipo == 'ingreso' else 'gasto' }}">
+              {{ '+' if m.tipo == 'ingreso' else '−' }}{{ m.monto|pesos }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vacio">
+        <span class="vacio__icono"><svg><use href="#i-plata"/></svg></span>
+        <p class="vacio__texto">Todavia no has registrado nada hoy. Cuando vendas el primer almuerzo, aparece aqui.</p>
+        <a class="boton" href="{{ url_for('venta_nueva') }}">Registrar la primera venta</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">Quien te debe</h2>
+      <a class="boton boton--secundario boton--pequeno" href="{{ url_for('fiados') }}">Ver todo</a>
+    </div>
+
+    {% if deudores %}
+      <div class="lista">
+        {% for d in deudores %}
+          <a class="lista__fila" href="{{ url_for('fiado_detalle', id_cliente=d.id) }}">
+            <span class="avatar avatar--{{ d.nombre|color_avatar }}">{{ d.nombre|iniciales }}</span>
+            <div class="lista__cuerpo">
+              <div class="lista__titulo">{{ d.nombre }}</div>
+              <div class="lista__sub">{{ d.telefono or 'Sin telefono' }}</div>
+            </div>
+            <span class="lista__monto lista__monto--fiado">{{ d.saldo|pesos }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vacio">
+        <span class="vacio__icono"><svg><use href="#i-check"/></svg></span>
+        <p class="vacio__texto">Nadie te debe plata en este momento. Todo al dia.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block titulo %}Menu del dia - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Menu del dia</h1>
+    <p class="pagina__sub">Arma lo que hay hoy, plato por plato, y mandalo por WhatsApp.</p>
+  </div>
+  {% if hay_para_copiar %}
+    <div class="pagina__acciones">
+      <form method="post" action="{{ url_for('menu_copiar') }}">
+        <button type="submit" class="boton boton--secundario">
+          <svg><use href="#i-copiar"/></svg> Copiar el menu anterior
+        </button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+
+<div class="rejilla rejilla--2-1" style="margin-top:0">
+
+  <!-- ===== Columna izquierda: armar el menu ===== -->
+  <div class="columna">
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Agregar un plato</h2>
+      </div>
+
+      <form method="post" action="{{ url_for('menu_agregar') }}" class="agregar-plato">
+        <div class="campo">
+          <label class="campo__etiqueta" for="grupo">De que parte es</label>
+          <select id="grupo" name="grupo">
+            {% for valor, etiqueta in grupos_menu %}
+              <option value="{{ valor }}" {% if valor == 'carne' %}selected{% endif %}>{{ etiqueta }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="campo">
+          <label class="campo__etiqueta" for="nombre">Que es</label>
+          <input type="text" id="nombre" name="nombre" list="platos-conocidos"
+                 placeholder="Por ejemplo: pollo asado" autocomplete="off" required>
+          <datalist id="platos-conocidos">
+            {% for plato in platos_conocidos %}
+              <option value="{{ plato }}"></option>
+            {% endfor %}
+          </datalist>
+        </div>
+        <button type="submit" class="boton">
+          <svg><use href="#i-venta"/></svg> Agregar
+        </button>
+      </form>
+      <p class="campo__ayuda" style="margin-top:12px">
+        Puedes poner varias carnes: el cliente escoge entre ellas. Si se acaba alguna,
+        la marcas como agotada y deja de salir en el mensaje de WhatsApp.
+      </p>
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Lo que hay hoy</h2>
+      </div>
+
+      {% if grupos %}
+        {% for grupo in grupos %}
+          <div class="grupo-menu">
+            <p class="grupo-menu__titulo">{{ grupo.etiqueta }}</p>
+            <div class="lista">
+              {% for plato in grupo.platos %}
+                <div class="lista__fila {% if not plato.disponible %}lista__fila--apagada{% endif %}">
+                  <span class="lista__icono lista__icono--{{ 'venta' if plato.disponible else 'gasto' }}">
+                    <svg><use href="#i-{{ 'check' if plato.disponible else 'alerta' }}"/></svg>
+                  </span>
+                  <div class="lista__cuerpo">
+                    <div class="lista__titulo">{{ plato.nombre }}</div>
+                    {% if not plato.disponible %}
+                      <div class="lista__sub">Se acabo. No sale en el mensaje de WhatsApp.</div>
+                    {% endif %}
+                  </div>
+                  <div class="acciones-fila">
+                    <form method="post" action="{{ url_for('menu_alternar', id_item=plato.id) }}">
+                      <button type="submit" class="boton boton--secundario boton--pequeno">
+                        {{ 'Se acabo' if plato.disponible else 'Volvio a haber' }}
+                      </button>
+                    </form>
+                    <form method="post" action="{{ url_for('menu_quitar', id_item=plato.id) }}"
+                          data-confirmar="Quitar {{ plato.nombre }} del menu de hoy?">
+                      <button type="submit" class="boton boton--peligro boton--pequeno">Quitar</button>
+                    </form>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="vacio">
+          <span class="vacio__icono"><svg><use href="#i-menu-dia"/></svg></span>
+          <p class="vacio__texto">
+            Todavia no has puesto nada para hoy. Agrega el primer plato arriba
+            {% if hay_para_copiar %}, o copia el menu del dia anterior{% endif %}.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Precio y nota</h2>
+      </div>
+      <form method="post" action="{{ url_for('menu_detalles') }}" class="formulario" style="max-width:none">
+        <div class="campo">
+          <label class="campo__etiqueta" for="precio">Cuanto vale el almuerzo hoy</label>
+          <input type="text" inputmode="numeric" id="precio" name="precio"
+                 placeholder="Por ejemplo 16000" autocomplete="off"
+                 value="{{ precio|round|int if precio else '' }}">
+          <span class="campo__ayuda">
+            Lo puedes cambiar cualquier dia. Sale en el mensaje de WhatsApp.
+          </span>
+        </div>
+        <div class="campo">
+          <label class="campo__etiqueta" for="nota">Nota del dia (opcional)</label>
+          <textarea id="nota" name="nota"
+                    placeholder="Por ejemplo: hoy solo hay domicilios hasta las 2">{{ nota or '' }}</textarea>
+        </div>
+        <button type="submit" class="boton">
+          <svg><use href="#i-check"/></svg> Guardar precio y nota
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Columna derecha: vista previa e historial ===== -->
+  <div class="columna">
+
+    <div class="tarjeta destacado-oscuro">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Asi lo van a ver</h2>
+      </div>
+      {% if vista_previa %}
+        <p class="menu-hoy">{{ vista_previa }}</p>
+        <div style="margin-top:18px; position:relative; z-index:1">
+          <a class="boton boton--whatsapp" href="{{ whatsapp_url }}" target="_blank" rel="noopener">
+            <svg><use href="#i-whatsapp"/></svg> Enviar por WhatsApp
+          </a>
+          <p class="ayuda" style="margin-top:12px">
+            Se abre WhatsApp con este mensaje ya escrito, listo para mandarlo a un
+            contacto, un grupo o tu estado.
+          </p>
+        </div>
+      {% else %}
+        <p class="ayuda">
+          Cuando agregues platos, aqui vas a ver exactamente el mensaje que le llega
+          al cliente.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Menus de otros dias</h2>
+      </div>
+
+      {% if anteriores %}
+        {% for dia in anteriores %}
+          <div class="dia-anterior">
+            <div class="dia-anterior__cabeza">
+              <strong>{{ dia.fecha|fecha_bonita }}</strong>
+              <form method="post" action="{{ url_for('menu_copiar') }}">
+                <input type="hidden" name="fecha" value="{{ dia.fecha }}">
+                <button type="submit" class="boton boton--secundario boton--pequeno">Copiar a hoy</button>
+              </form>
+            </div>
+            <ul class="menu-resumen menu-resumen--claro">
+              {% for grupo in dia.grupos %}
+                <li>
+                  <span class="menu-resumen__grupo">{{ grupo.etiqueta }}</span>
+                  <span class="menu-resumen__platos">
+                    {{ grupo.platos|map(attribute='nombre')|join(', ') }}
+                  </span>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="vacio">
+          <span class="vacio__icono"><svg><use href="#i-menu-dia"/></svg></span>
+          <p class="vacio__texto">
+            Todavia no hay menus de otros dias. A medida que vayas armando el de cada
+            dia, se van quedando aqui para poder copiarlos.
+          </p>
+        </div>
+      {% endif %}
+
+      {% if menus_de_texto %}
+        <p class="campo__ayuda" style="margin-top:18px">
+          Menus que escribiste antes, cuando el menu era un solo texto:
+        </p>
+        <div class="lista">
+          {% for m in menus_de_texto %}
+            <div class="lista__fila">
+              <div class="lista__cuerpo">
+                <div class="lista__titulo">{{ m.fecha|fecha_bonita }}</div>
+                <div class="lista__sub">{{ m.texto }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

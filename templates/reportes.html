@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block titulo %}Reportes - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Reportes</h1>
+    <p class="pagina__sub">Como te fue en el mes, y en que se va la plata.</p>
+  </div>
+</div>
+
+<!-- ===== Caja total: desde que se empezo a usar la app ===== -->
+<section class="caja">
+  <div class="kpi kpi--destacada caja__principal aparece">
+    <div class="kpi__cabeza">
+      <span class="kpi__etiqueta">Plata en caja ahora</span>
+    </div>
+    <span class="kpi__numero" data-contar="{{ caja.en_caja|round|int }}">{{ caja.en_caja|pesos }}</span>
+    <div class="kpi__pie">
+      {% if caja.por_cobrar > 0 %}
+        Si te pagan lo que te deben: <span class="kpi__chip">{{ caja.si_te_pagan|pesos }}</span>
+      {% else %}
+        Desde que empezaste a usar la app
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tarjeta caja__cuenta">
+    <p class="caja__titulo">Asi se saca la cuenta</p>
+    <ul class="caja__lineas">
+      <li><span>Capital inicial</span><strong>{{ caja.capital|pesos }}</strong></li>
+      <li><span>+ Todo lo vendido</span><strong class="texto-venta">{{ caja.ventas|pesos }}</strong></li>
+      <li><span>− Todo lo gastado</span><strong class="texto-gasto">{{ caja.gastos|pesos }}</strong></li>
+      {% if caja.por_cobrar %}
+        <li>
+          <span>− {{ 'Lo que te deben (aun no entra)' if caja.por_cobrar > 0 else 'Saldos a favor de clientes' }}</span>
+          <strong class="texto-fiado">{{ caja.por_cobrar|pesos }}</strong>
+        </li>
+      {% endif %}
+      <li class="caja__resultado"><span>= En caja</span><strong>{{ caja.en_caja|pesos }}</strong></li>
+    </ul>
+  </div>
+
+  <div class="tarjeta caja__capital">
+    <p class="caja__titulo">Capital inicial</p>
+    {% if not caja.capital_definido %}
+      <p class="ayuda" style="margin-bottom:12px">
+        Si ya tenias plata en el negocio antes de usar la app, escribela aqui
+        una sola vez. Asi un gasto grande no se ve como una perdida.
+      </p>
+    {% else %}
+      <p class="ayuda" style="margin-bottom:12px">
+        La plata con la que arrancaste. Corregirla no cambia ninguna venta ni gasto.
+      </p>
+    {% endif %}
+    <form method="post" action="{{ url_for('guardar_capital_inicial') }}" class="agregar-plato">
+      <div class="campo">
+        <label class="campo__etiqueta" for="capital">Cuanto tenias</label>
+        <input type="text" inputmode="numeric" id="capital" name="capital" autocomplete="off"
+               placeholder="Por ejemplo 500.000"
+               value="{{ (caja.capital|pesos)[2:] if caja.capital_definido else '' }}">
+      </div>
+      <button type="submit" class="boton">
+        <svg><use href="#i-check"/></svg> Guardar
+      </button>
+    </form>
+  </div>
+</section>
+
+<p class="separador-seccion">Reportes por mes</p>
+
+<form method="get" class="filtros">
+  <div class="campo">
+    <label class="campo__etiqueta" for="mes">Mes</label>
+    <input type="month" id="mes" name="mes" value="{{ mes_parametro }}">
+  </div>
+  <div class="campo">
+    <label class="campo__etiqueta" for="categoria">Categoria</label>
+    <select id="categoria" name="categoria">
+      <option value="" {% if not categoria_parametro %}selected{% endif %}>Todas las categorias</option>
+      <optgroup label="Ventas">
+        {% for valor, etiqueta in categorias_ingreso %}
+          <option value="{{ valor }}" {% if categoria_parametro == valor %}selected{% endif %}>{{ etiqueta }}</option>
+        {% endfor %}
+      </optgroup>
+      <optgroup label="Gastos">
+        {% for valor, etiqueta in categorias_gasto %}
+          <option value="{{ valor }}" {% if categoria_parametro == valor %}selected{% endif %}>{{ etiqueta }}</option>
+        {% endfor %}
+      </optgroup>
+    </select>
+  </div>
+  <button type="submit" class="boton">
+    <svg><use href="#i-buscar"/></svg> Ver
+  </button>
+  {% if categoria_parametro %}
+    <a class="boton boton--secundario" href="{{ url_for('reportes', mes=mes_parametro) }}">
+      Todas las categorias
+    </a>
+  {% endif %}
+</form>
+
+{% if categoria_parametro %}
+  <p class="ayuda" style="margin-bottom:14px">
+    Mostrando solo <strong>{{ categorias_por_valor.get(categoria_parametro, categoria_parametro) }}</strong>.
+  </p>
+{% endif %}
+
+<section class="resumen">
+  <div class="kpi kpi--destacada aparece">
+    <div class="kpi__cabeza"><span class="kpi__etiqueta">Vendiste</span></div>
+    <span class="kpi__numero" data-contar="{{ balance_mes.ventas|round|int }}">{{ balance_mes.ventas|pesos }}</span>
+    <div class="kpi__pie">En el mes seleccionado</div>
+  </div>
+
+  <div class="kpi kpi--gasto aparece" style="animation-delay:70ms">
+    <div class="kpi__cabeza"><span class="kpi__etiqueta">Gastaste</span></div>
+    <span class="kpi__numero" data-contar="{{ balance_mes.gastos|round|int }}">{{ balance_mes.gastos|pesos }}</span>
+    <div class="kpi__pie">En el mes seleccionado</div>
+  </div>
+
+  <div class="kpi {{ 'kpi--positivo' if balance_mes.balance >= 0 else 'kpi--negativo' }} aparece"
+       style="animation-delay:140ms">
+    <div class="kpi__cabeza"><span class="kpi__etiqueta">Te quedo</span></div>
+    <span class="kpi__numero" data-contar="{{ balance_mes.balance|round|int }}">{{ balance_mes.balance|pesos }}</span>
+    <div class="kpi__pie">
+      {% if balance_mes.balance >= 0 %}Ventas menos gastos{% else %}Gastaste mas de lo que vendiste{% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="rejilla rejilla--1-1">
+  <div class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">De donde viene la plata</h2>
+    </div>
+    {% set ventas = por_categoria|selectattr('tipo', 'equalto', 'ingreso')|list %}
+    {% if ventas %}
+      <div class="barras">
+        {% for fila in ventas %}
+          <div>
+            <div class="barra__cabeza">
+              <span class="barra__nombre">{{ categorias_por_valor.get(fila.categoria, fila.categoria) }}</span>
+              <span class="barra__valor" style="color:var(--verde-700)">{{ fila.total|pesos }}</span>
+            </div>
+            <div class="barra__pista">
+              <div class="barra__relleno barra__relleno--venta"
+                   style="--ancho: {{ (fila.total / tope_categoria * 100)|round(1) }}%;
+                          animation-delay: {{ loop.index0 * 90 }}ms"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vacio">
+        <span class="vacio__icono"><svg><use href="#i-plata"/></svg></span>
+        <p class="vacio__texto">No hay ventas registradas en este mes.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">En que se va la plata</h2>
+    </div>
+    {% set gastos = por_categoria|selectattr('tipo', 'equalto', 'gasto')|list %}
+    {% if gastos %}
+      <div class="barras">
+        {% for fila in gastos %}
+          <div>
+            <div class="barra__cabeza">
+              <span class="barra__nombre">{{ categorias_por_valor.get(fila.categoria, fila.categoria) }}</span>
+              <span class="barra__valor" style="color:var(--rojo-600)">{{ fila.total|pesos }}</span>
+            </div>
+            <div class="barra__pista">
+              <div class="barra__relleno barra__relleno--gasto"
+                   style="--ancho: {{ (fila.total / tope_categoria * 100)|round(1) }}%;
+                          animation-delay: {{ loop.index0 * 90 }}ms"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vacio">
+        <span class="vacio__icono"><svg><use href="#i-plata"/></svg></span>
+        <p class="vacio__texto">No hay gastos registrados en este mes.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if por_producto %}
+  <div class="tarjeta" style="margin-top:16px">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">Lo que mas vendes del catalogo</h2>
+      <a class="boton boton--secundario boton--pequeno" href="{{ url_for('catalogo') }}">Ver catalogo</a>
+    </div>
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th>Producto</th><th>Cuantos</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+          {% for p in por_producto %}
+            <tr>
+              <td><strong>{{ p.nombre }}</strong></td>
+              <td>{{ p.unidades|round|int }}</td>
+              <td class="celda-monto celda-monto--venta">{{ p.total|pesos }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

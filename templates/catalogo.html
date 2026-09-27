@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block titulo %}Catalogo - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Catalogo</h1>
+    <p class="pagina__sub">Lo que vendes aparte del almuerzo: postres, tinto, empanadas.</p>
+  </div>
+</div>
+
+<div class="rejilla rejilla--2-1" style="margin-top:0">
+  <div class="columna">
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Agregar un producto</h2>
+      </div>
+      <form method="post" action="{{ url_for('catalogo_agregar') }}" class="agregar-plato">
+        <div class="campo">
+          <label class="campo__etiqueta" for="nombre">Que es</label>
+          <input type="text" id="nombre" name="nombre" placeholder="Por ejemplo: Empanada"
+                 autocomplete="off" required>
+        </div>
+        <div class="campo">
+          <label class="campo__etiqueta" for="precio">A cuanto lo vendes</label>
+          <input type="text" inputmode="numeric" id="precio" name="precio"
+                 placeholder="Por ejemplo 3000" autocomplete="off" required>
+        </div>
+        <button type="submit" class="boton">
+          <svg><use href="#i-venta"/></svg> Agregar
+        </button>
+      </form>
+      <p class="campo__ayuda" style="margin-top:12px">
+        Una vez agregado, al registrar una venta lo escoges de la lista y la app
+        calcula el total sola. Tambien sale en el mensaje de WhatsApp.
+      </p>
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Tus productos</h2>
+      </div>
+
+      {% if productos %}
+        <div class="tabla-caja">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Precio</th>
+                <th>Vendido este mes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in productos %}
+                <tr {% if not p.activo %}class="fila-apagada"{% endif %}>
+                  <td>
+                    <strong>{{ p.nombre }}</strong>
+                    {% if not p.activo %}
+                      <div class="lista__sub">Guardado. No sale al vender ni en WhatsApp.</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{{ url_for('catalogo_precio', id_producto=p.id) }}"
+                          class="precio-linea">
+                      <input type="text" inputmode="numeric" name="precio"
+                             value="{{ (p.precio|pesos)[2:] }}" aria-label="Precio de {{ p.nombre }}">
+                      <button type="submit" class="boton boton--secundario boton--pequeno">Cambiar</button>
+                    </form>
+                  </td>
+                  <td>
+                    {% if p.unidades %}
+                      <strong>{{ p.unidades|round|int }}</strong>
+                      <span class="ayuda">({{ p.total|pesos }})</span>
+                    {% else %}
+                      <span class="ayuda">Nada todavia</span>
+                    {% endif %}
+                  </td>
+                  <td class="celda-acciones">
+                    <form method="post" action="{{ url_for('catalogo_alternar', id_producto=p.id) }}">
+                      <button type="submit" class="boton {{ 'boton--peligro' if p.activo else 'boton--secundario' }} boton--pequeno">
+                        {{ 'Guardar' if p.activo else 'Volver a usar' }}
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="vacio">
+          <span class="vacio__icono"><svg><use href="#i-catalogo"/></svg></span>
+          <p class="vacio__texto">
+            Todavia no hay productos. Agrega el primero arriba: un postre, un tinto,
+            una empanada, lo que vendas aparte del almuerzo.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="columna">
+    <div class="kpi kpi--destacada">
+      <div class="kpi__cabeza">
+        <span class="kpi__etiqueta">Vendido del catalogo este mes</span>
+      </div>
+      <span class="kpi__numero" data-contar="{{ vendido_mes|round|int }}">{{ vendido_mes|pesos }}</span>
+      <div class="kpi__pie">Aparte de los almuerzos</div>
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Como se usa</h2>
+      </div>
+      <ul class="pasos">
+        <li><span class="pasos__numero">1</span> Agregas el producto con su precio.</li>
+        <li><span class="pasos__numero">2</span> Al registrar una venta lo escoges de la lista
+          y dices cuantos vendiste.</li>
+        <li><span class="pasos__numero">3</span> La app calcula el total y lo suma a las ventas
+          del dia.</li>
+      </ul>
+      <p class="campo__ayuda" style="margin-top:14px">
+        Si cambias el precio, las ventas que ya registraste no cambian: cada una guardo
+        lo que de verdad se cobro ese dia.
+      </p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

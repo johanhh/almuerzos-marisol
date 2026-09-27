@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block titulo %}Quien debe - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Quien te debe</h1>
+    <p class="pagina__sub">La plata que fiaste y todavia no te han pagado.</p>
+  </div>
+  <div class="pagina__acciones">
+    <a class="boton" href="{{ url_for('venta_nueva') }}">
+      <svg><use href="#i-venta"/></svg> Registrar venta
+    </a>
+  </div>
+</div>
+
+<form method="get" class="filtros">
+  <div class="campo">
+    <label class="campo__etiqueta" for="buscar">Buscar por nombre o telefono</label>
+    <input type="search" id="buscar" name="buscar" value="{{ buscar }}"
+           placeholder="Por ejemplo: Juan, o 300">
+  </div>
+  <div class="campo">
+    <label class="campo__etiqueta" for="orden">Ordenar por</label>
+    <select id="orden" name="orden">
+      <option value="mas_debe" {% if orden == 'mas_debe' %}selected{% endif %}>El que mas debe primero</option>
+      <option value="menos_debe" {% if orden == 'menos_debe' %}selected{% endif %}>El que menos debe primero</option>
+      <option value="nombre" {% if orden == 'nombre' %}selected{% endif %}>Nombre (A a Z)</option>
+      <option value="nombre_desc" {% if orden == 'nombre_desc' %}selected{% endif %}>Nombre (Z a A)</option>
+      <option value="telefono" {% if orden == 'telefono' %}selected{% endif %}>Telefono</option>
+    </select>
+  </div>
+  <button type="submit" class="boton">
+    <svg><use href="#i-buscar"/></svg> Buscar
+  </button>
+  {% if buscar %}
+    <a class="boton boton--secundario" href="{{ url_for('fiados', orden=orden) }}">Ver todos</a>
+  {% endif %}
+</form>
+
+{% if clientes %}
+  <section class="resumen" style="margin-bottom:16px">
+    <div class="kpi kpi--destacada">
+      <div class="kpi__cabeza">
+        <span class="kpi__etiqueta">{{ 'Total de lo que estas viendo' if buscar else 'Total por cobrar' }}</span>
+      </div>
+      <span class="kpi__numero" data-contar="{{ total_por_cobrar|round|int }}">{{ total_por_cobrar|pesos }}</span>
+      <div class="kpi__pie">
+        Entre {{ clientes|length }} persona{{ 's' if clientes|length != 1 else '' }}
+      </div>
+    </div>
+  </section>
+
+  <div class="tarjeta" style="padding:0; overflow:hidden">
+    <div class="tabla-caja" style="border:none">
+      <table>
+        <thead>
+          <tr>
+            <th>
+              <a href="{{ url_for('fiados', buscar=buscar, orden='nombre_desc' if orden == 'nombre' else 'nombre') }}">
+                Cliente {% if orden == 'nombre' %}▲{% elif orden == 'nombre_desc' %}▼{% endif %}
+              </a>
+            </th>
+            <th>
+              <a href="{{ url_for('fiados', buscar=buscar, orden='telefono_desc' if orden == 'telefono' else 'telefono') }}">
+                Telefono {% if orden == 'telefono' %}▲{% elif orden == 'telefono_desc' %}▼{% endif %}
+              </a>
+            </th>
+            <th>
+              <a href="{{ url_for('fiados', buscar=buscar, orden='menos_debe' if orden == 'mas_debe' else 'mas_debe') }}">
+                Te debe {% if orden == 'menos_debe' %}▲{% elif orden == 'mas_debe' %}▼{% endif %}
+              </a>
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in clientes %}
+            <tr>
+              <td>
+                <span class="celda-cliente">
+                  <span class="avatar avatar--{{ c.nombre|color_avatar }}">{{ c.nombre|iniciales }}</span>
+                  <strong>{{ c.nombre }}</strong>
+                </span>
+              </td>
+              <td>{{ c.telefono or '—' }}</td>
+              <td class="celda-monto celda-monto--fiado">{{ c.saldo|pesos }}</td>
+              <td class="celda-acciones">
+                <a class="boton boton--pequeno" href="{{ url_for('fiado_detalle', id_cliente=c.id) }}">
+                  Ver y abonar
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% elif buscar %}
+  <div class="vacio">
+    <span class="vacio__icono"><svg><use href="#i-buscar"/></svg></span>
+    <p class="vacio__texto">Nadie que deba plata coincide con "{{ buscar }}".</p>
+    <a class="boton boton--secundario" href="{{ url_for('fiados') }}">Ver todos</a>
+  </div>
+{% else %}
+  <div class="vacio">
+    <span class="vacio__icono"><svg><use href="#i-check"/></svg></span>
+    <p class="vacio__texto">
+      Nadie te debe plata en este momento. Cuando fies un almuerzo, la persona aparece aqui
+      hasta que te pague.
+    </p>
+  </div>
+{% endif %}
+
+{% if con_saldo_a_favor %}
+  <div class="tarjeta" style="margin-top:16px">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">Saldo a favor</h2>
+    </div>
+    <p class="ayuda" style="margin-bottom:14px">
+      Estas personas te abonaron mas de lo que debian. Normalmente pasa cuando se borro una
+      venta que ya habian pagado. Esa plata les queda a favor: si les vuelves a fiar, se
+      descuenta de la deuda nueva.
+    </p>
+    <div class="lista">
+      {% for c in con_saldo_a_favor %}
+        <a class="lista__fila" href="{{ url_for('fiado_detalle', id_cliente=c.id) }}">
+          <span class="avatar avatar--{{ c.nombre|color_avatar }}">{{ c.nombre|iniciales }}</span>
+          <div class="lista__cuerpo">
+            <div class="lista__titulo">{{ c.nombre }}</div>
+            <div class="lista__sub">{{ c.telefono or 'Sin telefono' }}</div>
+          </div>
+          <span class="lista__monto lista__monto--venta">{{ (-c.saldo)|pesos }} a favor</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

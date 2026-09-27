@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block titulo %}{{ cliente.nombre }} - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div style="display:flex; align-items:center; gap:16px">
+    <span class="avatar avatar--{{ cliente.nombre|color_avatar }}"
+          style="width:60px; height:60px; font-size:1.25rem">{{ cliente.nombre|iniciales }}</span>
+    <div>
+      <h1 class="pagina__titulo">{{ cliente.nombre }}</h1>
+      <p class="pagina__sub">
+        {% if cliente.telefono %}Telefono: {{ cliente.telefono }}{% else %}Sin telefono guardado{% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="pagina__acciones">
+    <a class="boton boton--secundario" href="{{ url_for('fiados') }}">&larr; Volver</a>
+  </div>
+</div>
+
+<div class="rejilla rejilla--1-1" style="margin-top:0">
+  <div class="columna">
+    {% if saldo < 0 %}
+      <div class="kpi kpi--venta">
+        <div class="kpi__cabeza"><span class="kpi__etiqueta">Tiene a favor</span></div>
+        <span class="kpi__numero" data-contar="{{ (-saldo)|round|int }}">{{ (-saldo)|pesos }}</span>
+        <div class="kpi__pie">Te abono mas de lo que debia</div>
+      </div>
+      <div class="tarjeta">
+        <p class="ayuda">
+          Esto normalmente pasa cuando se borro una venta que esta persona ya habia pagado.
+          Esa plata le queda a favor: si le vuelves a fiar, se le descuenta de la deuda nueva.
+        </p>
+      </div>
+    {% else %}
+      <div class="kpi kpi--destacada">
+        <div class="kpi__cabeza"><span class="kpi__etiqueta">Debe actualmente</span></div>
+        <span class="kpi__numero" data-contar="{{ saldo|round|int }}">{{ saldo|pesos }}</span>
+        <div class="kpi__pie">
+          {% if saldo > 0 %}Pendiente por cobrar{% else %}Esta al dia, no debe nada{% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if saldo > 0 %}
+      <div class="tarjeta">
+        <div class="tarjeta__cabeza">
+          <h2 class="tarjeta__titulo">Anotar un pago</h2>
+        </div>
+        <form method="post" action="{{ url_for('registrar_abono') }}" class="formulario">
+          <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
+          <div class="campo">
+            <label class="campo__etiqueta" for="monto">Cuanto te pago</label>
+            <input type="text" inputmode="numeric" id="monto" name="monto"
+                   placeholder="Por ejemplo 10000" autocomplete="off">
+            <span class="campo__ayuda">
+              Debe {{ saldo|pesos }}. Si te paga todo, escribe ese mismo numero.
+            </span>
+          </div>
+          <button type="submit" class="boton boton--bloque">
+            <svg><use href="#i-check"/></svg> Guardar el pago
+          </button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">Movimientos de {{ cliente.nombre }}</h2>
+    </div>
+
+    {% if movimientos %}
+      <div class="lista">
+        {% for m in movimientos %}
+          <div class="lista__fila">
+            <span class="lista__icono lista__icono--{{ 'fiado' if m.tipo == 'cargo' else 'venta' }}">
+              <svg><use href="#i-{{ 'fiado' if m.tipo == 'cargo' else 'check' }}"/></svg>
+            </span>
+            <div class="lista__cuerpo">
+              <div class="lista__titulo">
+                {{ 'Quedo debiendo' if m.tipo == 'cargo' else 'Te pago' }}
+              </div>
+              <div class="lista__sub">
+                {{ m.fecha|fecha_bonita }}{% if m.nota %} · {{ m.nota }}{% endif %}
+              </div>
+            </div>
+            <span class="lista__monto lista__monto--{{ 'fiado' if m.tipo == 'cargo' else 'venta' }}">
+              {{ '+' if m.tipo == 'cargo' else '−' }}{{ m.monto|pesos }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vacio">
+        <span class="vacio__icono"><svg><use href="#i-vacio"/></svg></span>
+        <p class="vacio__texto">Todavia no hay movimientos de esta persona.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

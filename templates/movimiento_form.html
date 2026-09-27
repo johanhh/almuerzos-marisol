@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">{{ titulo }}</h1>
+    <p class="pagina__sub">
+      {% if tipo == 'ingreso' %}
+        Anota lo que vendiste. Si te quedaron debiendo, tambien se anota aqui.
+      {% else %}
+        Anota la plata que salio del negocio.
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="tarjeta" style="max-width: 640px">
+  <form method="post" class="formulario">
+
+    <div class="campo">
+      <label class="campo__etiqueta" for="fecha">Fecha</label>
+      <input type="date" id="fecha" name="fecha" value="{{ valores.get('fecha', '') }}">
+    </div>
+
+    <div class="campo">
+      <label class="campo__etiqueta" for="categoria">
+        {% if tipo == 'ingreso' %}Que vendiste{% else %}En que gastaste{% endif %}
+      </label>
+      <select id="categoria" name="categoria">
+        {% if tipo == 'ingreso' and productos %}
+          <optgroup label="Almuerzos">
+            {% for valor, etiqueta in categorias %}
+              <option value="{{ valor }}" {% if valores.get('categoria') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Del catalogo">
+            {% for p in productos %}
+              <option value="producto:{{ p.id }}" data-precio="{{ p.precio|round|int }}"
+                      {% if valores.get('categoria') == 'producto:' ~ p.id %}selected{% endif %}>
+                {{ p.nombre }} — {{ p.precio|pesos }}
+              </option>
+            {% endfor %}
+          </optgroup>
+        {% else %}
+          {% for valor, etiqueta in categorias %}
+            <option value="{{ valor }}" {% if valores.get('categoria') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+          {% endfor %}
+        {% endif %}
+      </select>
+    </div>
+
+    {% if tipo == 'ingreso' and productos %}
+      <div class="campo" id="campo-cantidad" hidden>
+        <label class="campo__etiqueta" for="cantidad">Cuantos vendiste</label>
+        <input type="text" inputmode="numeric" id="cantidad" name="cantidad"
+               value="{{ valores.get('cantidad', '1') }}" autocomplete="off">
+        <span class="campo__ayuda">La app calcula el total sola. Igual lo puedes cambiar abajo.</span>
+      </div>
+    {% endif %}
+
+    <div class="campo">
+      <label class="campo__etiqueta" for="monto">
+        {% if tipo == 'ingreso' %}Cuanto valia en total{% else %}Cuanto fue{% endif %}
+      </label>
+      <input type="text" inputmode="numeric" id="monto" name="monto"
+             placeholder="Por ejemplo 16000" value="{{ valores.get('monto', '') }}"
+             autocomplete="off">
+      <span class="campo__ayuda">Lo puedes escribir como 16000 o como 16.000, da lo mismo.</span>
+    </div>
+
+    <div class="campo">
+      <label class="campo__etiqueta" for="medio_pago">Medio de pago</label>
+      <select id="medio_pago" name="medio_pago">
+        {% for valor, etiqueta in medios_pago %}
+          <option value="{{ valor }}" {% if valores.get('medio_pago') == valor %}selected{% endif %}>{{ etiqueta }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campo">
+      <label class="campo__etiqueta" for="descripcion">Nota (opcional)</label>
+      <input type="text" id="descripcion" name="descripcion"
+             placeholder="Por ejemplo: mesa 3" value="{{ valores.get('descripcion', '') }}"
+             autocomplete="off">
+    </div>
+
+    {% if tipo == 'ingreso' %}
+      <div class="campo">
+        <span class="campo__etiqueta">Te pagaron completo?</span>
+        <div class="opciones">
+          <label class="opcion">
+            <input type="radio" name="pago_completo" value="si" id="pago-si"
+                   {% if valores.get('pago_completo', 'si') != 'no' %}checked{% endif %}>
+            Si, pago completo
+          </label>
+          <label class="opcion opcion--gasto">
+            <input type="radio" name="pago_completo" value="no" id="pago-no"
+                   {% if valores.get('pago_completo') == 'no' %}checked{% endif %}>
+            No, quedo debiendo
+          </label>
+        </div>
+      </div>
+
+      <div class="caja-fiado" id="detalle-fiado"
+           {% if valores.get('pago_completo') != 'no' %}hidden{% endif %}>
+        <div class="campo">
+          <label class="campo__etiqueta" for="cliente_nombre">Quien quedo debiendo</label>
+          <input type="text" id="cliente_nombre" name="cliente_nombre" list="lista-clientes"
+                 placeholder="Por ejemplo: Juan Perez" value="{{ valores.get('cliente_nombre', '') }}"
+                 autocomplete="off">
+          <datalist id="lista-clientes">
+            {% for nombre in clientes_existentes %}
+              <option value="{{ nombre }}"></option>
+            {% endfor %}
+          </datalist>
+          <span class="campo__ayuda">Si ya le has fiado antes, empieza a escribir y aparece solo.</span>
+        </div>
+
+        <div class="campo">
+          <label class="campo__etiqueta" for="cliente_telefono">Telefono (opcional)</label>
+          <input type="text" id="cliente_telefono" name="cliente_telefono"
+                 placeholder="Por ejemplo: 3001234567" value="{{ valores.get('cliente_telefono', '') }}"
+                 autocomplete="off">
+        </div>
+
+        <div class="campo">
+          <label class="campo__etiqueta" for="monto_pagado_ahora">Cuanto te dio ahora</label>
+          <input type="text" inputmode="numeric" id="monto_pagado_ahora" name="monto_pagado_ahora"
+                 placeholder="Escribe 0 si no te dio nada"
+                 value="{{ valores.get('monto_pagado_ahora', '') }}" autocomplete="off">
+          <span class="campo__ayuda">
+            Aqui va lo que te <strong>entrego</strong>, no lo que queda debiendo. La cuenta la hago yo.
+          </span>
+        </div>
+
+        <div class="resta resta--neutro" id="resta-fiado">
+          <svg><use href="#i-plata"/></svg>
+          <span data-resta-texto></span>
+        </div>
+      </div>
+    {% endif %}
+
+    <button type="submit" class="boton {{ 'boton--gasto' if tipo == 'gasto' }} boton--bloque">
+      <svg><use href="#i-check"/></svg>
+      Guardar {{ 'venta' if tipo == 'ingreso' else 'gasto' }}
+    </button>
+  </form>
+</div>
+
+{% endblock %}

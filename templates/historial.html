@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block titulo %}Historial - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Historial</h1>
+    <p class="pagina__sub">Todo lo que has registrado, con filtros para encontrar lo que buscas.</p>
+  </div>
+  <div class="pagina__acciones">
+    <a class="boton" href="{{ url_for('venta_nueva') }}">
+      <svg><use href="#i-venta"/></svg> Registrar venta
+    </a>
+  </div>
+</div>
+
+<form method="get" class="filtros">
+  <div class="campo">
+    <label class="campo__etiqueta" for="buscar">Buscar</label>
+    <input type="search" id="buscar" name="buscar" value="{{ buscar }}"
+           placeholder="Una nota o categoria">
+  </div>
+  <div class="campo">
+    <label class="campo__etiqueta" for="tipo">Tipo</label>
+    <select id="tipo" name="tipo">
+      <option value="todos" {% if tipo == 'todos' %}selected{% endif %}>Todos</option>
+      <option value="ingreso" {% if tipo == 'ingreso' %}selected{% endif %}>Solo ventas</option>
+      <option value="gasto" {% if tipo == 'gasto' %}selected{% endif %}>Solo gastos</option>
+    </select>
+  </div>
+  <div class="campo">
+    <label class="campo__etiqueta" for="desde">Desde</label>
+    <input type="date" id="desde" name="desde" value="{{ desde }}">
+  </div>
+  <div class="campo">
+    <label class="campo__etiqueta" for="hasta">Hasta</label>
+    <input type="date" id="hasta" name="hasta" value="{{ hasta }}">
+  </div>
+  <button type="submit" class="boton">
+    <svg><use href="#i-buscar"/></svg> Filtrar
+  </button>
+  {% if buscar or desde or hasta or tipo != 'todos' %}
+    <a class="boton boton--secundario" href="{{ url_for('historial') }}">Quitar filtros</a>
+  {% endif %}
+</form>
+
+{% if movimientos %}
+  <section class="resumen" style="margin-bottom:16px">
+    <div class="kpi kpi--venta">
+      <span class="kpi__etiqueta">Ventas de lo que estas viendo</span>
+      <span class="kpi__numero">{{ totales.ventas|pesos }}</span>
+    </div>
+    <div class="kpi kpi--gasto">
+      <span class="kpi__etiqueta">Gastos de lo que estas viendo</span>
+      <span class="kpi__numero">{{ totales.gastos|pesos }}</span>
+    </div>
+    <div class="kpi {{ 'kpi--positivo' if totales.balance >= 0 else 'kpi--negativo' }}">
+      <span class="kpi__etiqueta">Diferencia</span>
+      <span class="kpi__numero">{{ totales.balance|pesos }}</span>
+    </div>
+  </section>
+
+  <div class="tarjeta" style="padding:0; overflow:hidden">
+    <div class="tabla-caja" style="border:none">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Categoria</th>
+            <th>Monto</th>
+            <th>Pago</th>
+            <th>Nota</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movimientos %}
+            <tr>
+              <td>{{ m.fecha|fecha_bonita }}</td>
+              <td>
+                <span class="badge badge--{{ 'venta' if m.tipo == 'ingreso' else 'gasto' }}">
+                  {{ 'Venta' if m.tipo == 'ingreso' else 'Gasto' }}
+                </span>
+              </td>
+              <td>{{ categorias_por_valor.get(m.categoria, m.categoria) }}</td>
+              <td class="celda-monto celda-monto--{{ 'venta' if m.tipo == 'ingreso' else 'gasto' }}">
+                {{ '+' if m.tipo == 'ingreso' else '−' }}{{ m.monto|pesos }}
+              </td>
+              <td><span class="badge badge--neutro">{{ m.medio_pago|capitalize }}</span></td>
+              <td>{{ m.descripcion or '—' }}</td>
+              <td class="celda-acciones">
+                <form method="post" action="{{ url_for('eliminar_movimiento', id_movimiento=m.id) }}"
+                      data-confirmar="Seguro que quieres borrar este registro? No se puede deshacer.">
+                  <button type="submit" class="boton boton--peligro boton--pequeno">Borrar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="vacio">
+    <span class="vacio__icono"><svg><use href="#i-vacio"/></svg></span>
+    <p class="vacio__texto">
+      {% if buscar or desde or hasta or tipo != 'todos' %}
+        No encontramos movimientos con esos filtros. Prueba quitando alguno.
+      {% else %}
+        Todavia no has registrado ventas ni gastos. Cuando lo hagas, van a aparecer aqui.
+      {% endif %}
+    </p>
+    {% if buscar or desde or hasta or tipo != 'todos' %}
+      <a class="boton boton--secundario" href="{{ url_for('historial') }}">Quitar filtros</a>
+    {% else %}
+      <a class="boton" href="{{ url_for('venta_nueva') }}">Registrar una venta</a>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% endblock %}

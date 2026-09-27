@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block titulo %}Empleados - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Empleados</h1>
+    <p class="pagina__sub">Quien trabaja contigo y cuanto le has pagado este mes.</p>
+  </div>
+</div>
+
+<section class="resumen" style="margin-bottom:16px">
+  <div class="kpi kpi--destacada">
+    <div class="kpi__cabeza">
+      <span class="kpi__etiqueta">Pagado este mes</span>
+    </div>
+    <span class="kpi__numero" data-contar="{{ nomina_mes|round|int }}">{{ nomina_mes|pesos }}</span>
+    <div class="kpi__pie">
+      {% set activos = empleados|selectattr('activo')|list %}
+      Entre {{ activos|length }} persona{{ 's' if activos|length != 1 else '' }}
+    </div>
+  </div>
+</section>
+
+{% if empleados %}
+  <div class="lista-empleados">
+    {% for e in empleados %}
+      <div class="tarjeta {% if not e.activo %}fila-apagada{% endif %}">
+        <div class="empleado__cabeza">
+          <span class="avatar avatar--{{ e.nombre|color_avatar }}">{{ e.nombre|iniciales }}</span>
+          <div class="lista__cuerpo">
+            <div class="empleado__nombre">{{ e.nombre }}</div>
+            <div class="lista__sub">
+              {% if e.cargo %}{{ e.cargo }}{% else %}Sin cargo anotado{% endif %}
+              {% if e.pago_acordado %}
+                · {{ e.pago_acordado|pesos }}{% if e.frecuencia %} · {{ e.frecuencia|lower }}{% endif %}
+              {% endif %}
+              {% if not e.activo %} · Ya no trabaja aqui{% endif %}
+            </div>
+          </div>
+          <div class="empleado__pagado">
+            <span class="empleado__pagado-etiqueta">Este mes</span>
+            <span class="empleado__pagado-monto">{{ e.pagado_mes|pesos }}</span>
+            {% if e.ultimo_pago %}
+              <span class="lista__sub">Ultimo: {{ e.ultimo_pago|fecha_bonita }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if e.activo %}
+          <form method="post" action="{{ url_for('empleados_pagar', id_empleado=e.id) }}"
+                class="agregar-plato empleado__pago">
+            <div class="campo">
+              <label class="campo__etiqueta" for="monto-{{ e.id }}">Cuanto le pagas</label>
+              <input type="text" inputmode="numeric" id="monto-{{ e.id }}" name="monto"
+                     autocomplete="off"
+                     placeholder="{% if e.pago_acordado %}{{ (e.pago_acordado|pesos)[2:] }}{% else %}Por ejemplo 50000{% endif %}"
+                     value="{{ (e.pago_acordado|pesos)[2:] if e.pago_acordado else '' }}">
+            </div>
+            <div class="campo">
+              <label class="campo__etiqueta" for="fecha-{{ e.id }}">Cuando</label>
+              <input type="date" id="fecha-{{ e.id }}" name="fecha" value="{{ hoy_iso }}">
+            </div>
+            <div class="campo">
+              <label class="campo__etiqueta" for="nota-{{ e.id }}">Nota (opcional)</label>
+              <input type="text" id="nota-{{ e.id }}" name="nota" autocomplete="off"
+                     placeholder="Por ejemplo: semana del 20">
+            </div>
+            <button type="submit" class="boton">
+              <svg><use href="#i-check"/></svg> Anotar el pago
+            </button>
+          </form>
+          <p class="campo__ayuda" style="margin-top:10px">
+            Al anotarlo, tambien queda registrado como gasto del negocio.
+          </p>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('empleados_alternar', id_empleado=e.id) }}"
+              style="margin-top:12px">
+          <button type="submit" class="boton boton--secundario boton--pequeno">
+            {{ 'Ya no trabaja aqui' if e.activo else 'Volvio a trabajar' }}
+          </button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="vacio">
+    <span class="vacio__icono"><svg><use href="#i-empleados"/></svg></span>
+    <p class="vacio__texto">
+      Todavia no has agregado empleados. Agrega el primero abajo para llevar la cuenta
+      de lo que le pagas.
+    </p>
+  </div>
+{% endif %}
+
+<div class="tarjeta" style="margin-top:16px">
+  <div class="tarjeta__cabeza">
+    <h2 class="tarjeta__titulo">Agregar un empleado</h2>
+  </div>
+  <form method="post" action="{{ url_for('empleados_agregar') }}" class="agregar-plato">
+    <div class="campo">
+      <label class="campo__etiqueta" for="nombre">Nombre</label>
+      <input type="text" id="nombre" name="nombre" placeholder="Por ejemplo: Rosa Elena"
+             autocomplete="off" required>
+    </div>
+    <div class="campo">
+      <label class="campo__etiqueta" for="cargo">Que hace (opcional)</label>
+      <input type="text" id="cargo" name="cargo" placeholder="Por ejemplo: cocina"
+             autocomplete="off">
+    </div>
+    <div class="campo">
+      <label class="campo__etiqueta" for="pago_acordado">Cuanto le pagas (opcional)</label>
+      <input type="text" inputmode="numeric" id="pago_acordado" name="pago_acordado"
+             placeholder="Por ejemplo 50000" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label class="campo__etiqueta" for="frecuencia">Cada cuanto</label>
+      <select id="frecuencia" name="frecuencia">
+        {% for valor, etiqueta in frecuencias %}
+          <option value="{{ valor }}" {% if valor == 'semana' %}selected{% endif %}>{{ etiqueta }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="boton">
+      <svg><use href="#i-venta"/></svg> Agregar
+    </button>
+  </form>
+  <p class="campo__ayuda" style="margin-top:12px">
+    Lo que le pagas es solo una referencia para no tener que escribirlo cada vez.
+    Cuando anotes un pago puedes poner otro monto si esa vez fue distinto.
+  </p>
+</div>
+
+{% endblock %}

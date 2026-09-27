@@ -1,0 +1,26 @@
+# Entorno virtual de Python: se recrea con los pasos del README.
+venv/
+env/
+.venv/
+
+# Archivos temporales que genera Python al correr.
+__pycache__/
+*.pyc
+*.pyo
+
+# LA BASE DE DATOS NO SE SUBE.
+# Tiene las ventas, los gastos y los clientes reales del negocio. Cada
+# computador crea la suya sola la primera vez que arranca la app.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Claves y configuracion propia de cada computador.
+.env
+
+# Basura de los editores y de Windows.
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
