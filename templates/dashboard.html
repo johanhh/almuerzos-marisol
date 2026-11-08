@@ -67,6 +67,15 @@
   </a>
 </section>
 
+{% if bonos_hoy %}
+  <p class="aviso-linea">
+    <svg><use href="#i-bonos"/></svg>
+    Ademas entregaste <strong>{{ bonos_hoy }} almuerzo{{ 's' if bonos_hoy != 1 else '' }}</strong>
+    de convenio hoy. No suman a las ventas de arriba porque esos bonos ya estaban pagados.
+    <a href="{{ url_for('convenios') }}">Ver convenios</a>
+  </p>
+{% endif %}
+
 <!-- ===== Grafica + medidor ===== -->
 <div class="rejilla rejilla--2-1">
   <div class="tarjeta">

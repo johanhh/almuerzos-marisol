@@ -517,6 +517,7 @@ def dashboard():
         ).fetchall()
 
         por_cobrar = total_que_deben(con)
+        bonos_hoy = almuerzos_de_convenio_hoy(con)
         serie = serie_por_dia(con, dias=7)
 
         # Los 4 que mas deben, para verlos sin salir del inicio.
@@ -560,6 +561,7 @@ def dashboard():
         precio_hoy=fila_menu_hoy["precio"] if fila_menu_hoy else None,
         ultimos_movimientos=ultimos_movimientos,
         por_cobrar=por_cobrar,
+        bonos_hoy=bonos_hoy,
         serie=serie,
         tope_grafica=tope,
         deudores=deudores,
@@ -1827,6 +1829,335 @@ def empleados_alternar(id_empleado):
         else:
             flash(f"{fila['nombre']} queda como que ya no trabaja aqui.", "exito")
     return redirect(url_for("empleados"))
+
+
+# ---------------------------------------------------------------------
+# Convenios con empresas (bonos de almuerzo)
+#
+# La empresa paga por adelantado un taco de bonos. Esa plata entra el
+# dia de la entrega. Despues, cada bono que el domiciliario trae de
+# vuelta solo descuenta del saldo: NO vuelve a sumar plata, porque ya
+# se cobro. Contarlo dos veces inflaria las ventas de todo el mes.
+# ---------------------------------------------------------------------
+
+def _saldos_de_convenios(con):
+    """Bonos entregados, usados y restantes de cada convenio.
+
+    Se traen las dos sumas en consultas agrupadas y se cruzan en
+    Python, en vez de preguntar por cada convenio dentro de un bucle.
+    """
+    entregados = {
+        f["convenio_id"]: f
+        for f in con.execute(
+            """
+            SELECT convenio_id,
+                   COALESCE(SUM(cantidad), 0) AS bonos,
+                   COALESCE(SUM(cantidad * precio_unitario), 0) AS pagado
+            FROM entregas_bonos GROUP BY convenio_id
+            """
+        )
+    }
+    usados = {
+        f["convenio_id"]: f["bonos"]
+        for f in con.execute(
+            """
+            SELECT convenio_id, COALESCE(SUM(cantidad), 0) AS bonos
+            FROM consumos_bonos GROUP BY convenio_id
+            """
+        )
+    }
+
+    lista = []
+    for fila in con.execute(
+        "SELECT * FROM convenios ORDER BY activo DESC, empresa"
+    ):
+        entrega = entregados.get(fila["id"])
+        total = entrega["bonos"] if entrega else 0
+        gastados = usados.get(fila["id"], 0)
+        lista.append(
+            {
+                "id": fila["id"],
+                "empresa": fila["empresa"],
+                "contacto": fila["contacto"],
+                "telefono": fila["telefono"],
+                "precio_almuerzo": fila["precio_almuerzo"],
+                "activo": fila["activo"],
+                "entregados": total,
+                "usados": gastados,
+                "restantes": total - gastados,
+                "pagado": entrega["pagado"] if entrega else 0,
+            }
+        )
+    return lista
+
+
+def almuerzos_de_convenio_hoy(con):
+    """Cuantos almuerzos de convenio se entregaron hoy.
+
+    No es plata (ya se cobro por adelantado), pero si es informacion
+    que Marisol necesita: son almuerzos que tuvo que cocinar. Sin esto,
+    un dia con 20 almuerzos de convenio se veria como un dia sin nada.
+    """
+    fila = con.execute(
+        "SELECT COALESCE(SUM(cantidad), 0) AS total FROM consumos_bonos WHERE fecha = ?",
+        (date.today().isoformat(),),
+    ).fetchone()
+    return fila["total"]
+
+
+@app.route("/convenios")
+def convenios():
+    con = db.get_connection()
+    try:
+        lista = _saldos_de_convenios(con)
+    finally:
+        con.close()
+
+    return render_template(
+        "convenios.html",
+        convenios=lista,
+        bonos_por_usar=sum(c["restantes"] for c in lista if c["restantes"] > 0),
+    )
+
+
+@app.route("/convenios/agregar", methods=["POST"])
+def convenios_agregar():
+    empresa = request.form.get("empresa", "").strip()
+    contacto = request.form.get("contacto", "").strip()
+    telefono = request.form.get("telefono", "").strip()
+    texto_precio = request.form.get("precio_almuerzo", "").strip()
+
+    precio = None
+    if texto_precio:
+        precio, error = parsear_monto(texto_precio)
+        if error:
+            flash(error.replace("El monto", "El precio del almuerzo"), "error")
+            return redirect(url_for("convenios"))
+
+    if not empresa:
+        flash("Escribe el nombre de la empresa.", "error")
+        return redirect(url_for("convenios"))
+
+    con = db.get_connection()
+    try:
+        con.execute(
+            "INSERT INTO convenios (empresa, contacto, telefono, precio_almuerzo)"
+            " VALUES (?, ?, ?, ?)",
+            (empresa, contacto or None, telefono or None, precio),
+        )
+        con.commit()
+    finally:
+        con.close()
+    flash(f"Agregamos el convenio con {empresa}.", "exito")
+    return redirect(url_for("convenios"))
+
+
+@app.route("/convenios/<int:id_convenio>")
+def convenio_detalle(id_convenio):
+    con = db.get_connection()
+    try:
+        fila = con.execute(
+            "SELECT * FROM convenios WHERE id = ?", (id_convenio,)
+        ).fetchone()
+        if fila is None:
+            flash("Ese convenio no existe.", "error")
+            return redirect(url_for("convenios"))
+
+        resumen = next(
+            (c for c in _saldos_de_convenios(con) if c["id"] == id_convenio), None
+        )
+        entregas = con.execute(
+            "SELECT * FROM entregas_bonos WHERE convenio_id = ?"
+            " ORDER BY fecha DESC, id DESC",
+            (id_convenio,),
+        ).fetchall()
+        consumos = con.execute(
+            "SELECT * FROM consumos_bonos WHERE convenio_id = ?"
+            " ORDER BY fecha DESC, id DESC LIMIT 30",
+            (id_convenio,),
+        ).fetchall()
+    finally:
+        con.close()
+
+    return render_template(
+        "convenio_detalle.html",
+        convenio=resumen,
+        entregas=entregas,
+        consumos=consumos,
+    )
+
+
+@app.route("/convenios/<int:id_convenio>/entregar", methods=["POST"])
+def convenios_entregar(id_convenio):
+    """Entrega un taco de bonos y cobra por adelantado.
+
+    Crea DOS cosas a la vez: la entrega de bonos (para llevar el saldo)
+    y la venta que cobra esa plata (para que entre a la caja y a los
+    reportes). La venta es la que manda; la entrega apunta a ella.
+    """
+    fecha, error_fecha = parsear_fecha(request.form.get("fecha"))
+    precio, error_precio = parsear_monto(request.form.get("precio_unitario"))
+    cantidad, error_cantidad = parsear_cantidad(request.form.get("cantidad"))
+    nota = request.form.get("nota", "").strip()
+
+    for error in (error_fecha, error_precio, error_cantidad):
+        if error:
+            flash(error.replace("El monto", "El precio del almuerzo"), "error")
+            return redirect(url_for("convenio_detalle", id_convenio=id_convenio))
+
+    con = db.get_connection()
+    try:
+        convenio = con.execute(
+            "SELECT empresa FROM convenios WHERE id = ?", (id_convenio,)
+        ).fetchone()
+        if convenio is None:
+            flash("Ese convenio no existe.", "error")
+            return redirect(url_for("convenios"))
+
+        total = cantidad * precio
+        cursor = con.execute(
+            """
+            INSERT INTO transacciones
+                (fecha, tipo, categoria, descripcion, monto, medio_pago, cantidad)
+            VALUES (?, 'ingreso', 'bonos', ?, ?, 'transferencia', ?)
+            """,
+            (fecha, f"{cantidad} bonos para {convenio['empresa']}", total, cantidad),
+        )
+        con.execute(
+            """
+            INSERT INTO entregas_bonos
+                (convenio_id, fecha, cantidad, precio_unitario, nota, transaccion_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (id_convenio, fecha, cantidad, precio, nota or None, cursor.lastrowid),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+    flash(
+        f"Entregamos {cantidad} bonos a {convenio['empresa']} y cobramos "
+        f"{formato_pesos(total)}. Ya puedes imprimirlos.",
+        "exito",
+    )
+    return redirect(url_for("convenio_detalle", id_convenio=id_convenio))
+
+
+@app.route("/convenios/<int:id_convenio>/consumir", methods=["POST"])
+def convenios_consumir(id_convenio):
+    """Anota los bonos que el domiciliario trajo de vuelta.
+
+    Esto NO registra una venta: esos almuerzos ya se cobraron cuando se
+    entregaron los bonos. Solo descuenta del saldo.
+    """
+    fecha, error_fecha = parsear_fecha(request.form.get("fecha"))
+    cantidad, error_cantidad = parsear_cantidad(request.form.get("cantidad"))
+    nota = request.form.get("nota", "").strip()
+
+    for error in (error_fecha, error_cantidad):
+        if error:
+            flash(error, "error")
+            return redirect(url_for("convenio_detalle", id_convenio=id_convenio))
+
+    con = db.get_connection()
+    try:
+        resumen = next(
+            (c for c in _saldos_de_convenios(con) if c["id"] == id_convenio), None
+        )
+        if resumen is None:
+            flash("Ese convenio no existe.", "error")
+            return redirect(url_for("convenios"))
+
+        # Avisar si se usan mas bonos de los que se entregaron: puede
+        # pasar de verdad (un bono viejo, o falta registrar una
+        # entrega), pero Marisol tiene que enterarse, no descubrirlo
+        # cuando los numeros no cuadren a fin de mes.
+        if cantidad > resumen["restantes"]:
+            flash(
+                f"Ojo: anotaste {cantidad} bonos pero a {resumen['empresa']} solo le "
+                f"quedaban {resumen['restantes']}. Revisa si falta registrar una entrega.",
+                "error",
+            )
+
+        con.execute(
+            "INSERT INTO consumos_bonos (convenio_id, fecha, cantidad, nota)"
+            " VALUES (?, ?, ?, ?)",
+            (id_convenio, fecha, cantidad, nota or None),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+    flash(
+        f"Anotamos {cantidad} almuerzo{'s' if cantidad != 1 else ''} de "
+        f"{resumen['empresa']}. No suma plata: esos bonos ya estaban pagados.",
+        "exito",
+    )
+    return redirect(url_for("convenio_detalle", id_convenio=id_convenio))
+
+
+@app.route("/convenios/<int:id_convenio>/alternar", methods=["POST"])
+def convenios_alternar(id_convenio):
+    con = db.get_connection()
+    try:
+        fila = con.execute(
+            "SELECT empresa, activo FROM convenios WHERE id = ?", (id_convenio,)
+        ).fetchone()
+        if fila:
+            nuevo = 0 if fila["activo"] else 1
+            con.execute(
+                "UPDATE convenios SET activo = ? WHERE id = ?", (nuevo, id_convenio)
+            )
+            con.commit()
+    finally:
+        con.close()
+
+    if fila:
+        estado = "vuelve a estar activo" if nuevo else "queda como terminado"
+        flash(f"El convenio con {fila['empresa']} {estado}.", "exito")
+    return redirect(url_for("convenios"))
+
+
+@app.route("/convenios/entrega/<int:id_entrega>/imprimir")
+def bonos_imprimir(id_entrega):
+    """Arma la hoja de bonos lista para mandar a imprimir.
+
+    Los numeros que salen impresos se calculan aqui y NO se guardan en
+    la base de datos: como el control se lleva contando cuantos bonos
+    vuelven (no cual bono), guardarlos uno por uno seria cargar la
+    base con datos que nadie consulta. El numero impreso sirve para el
+    control fisico entre el negocio y la empresa.
+    """
+    con = db.get_connection()
+    try:
+        entrega = con.execute(
+            """
+            SELECT e.*, c.empresa
+            FROM entregas_bonos e
+            JOIN convenios c ON c.id = e.convenio_id
+            WHERE e.id = ?
+            """,
+            (id_entrega,),
+        ).fetchone()
+    finally:
+        con.close()
+
+    if entrega is None:
+        flash("Esa entrega de bonos no existe.", "error")
+        return redirect(url_for("convenios"))
+
+    try:
+        mes = datetime.strptime(entrega["fecha"], "%Y-%m-%d")
+        vigencia = f"{MESES[mes.month - 1].capitalize()} {mes.year}"
+    except ValueError:
+        vigencia = entrega["fecha"]
+
+    return render_template(
+        "bonos_imprimir.html",
+        entrega=entrega,
+        vigencia=vigencia,
+        numeros=range(1, entrega["cantidad"] + 1),
+    )
 
 
 if __name__ == "__main__":

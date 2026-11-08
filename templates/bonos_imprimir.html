@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bonos para {{ entrega.empresa }} - Almuerzos Marisol</title>
+  <style>
+    /* Esta pagina no usa el estilo de la app a proposito: va al papel,
+       no a la pantalla. Todo en blanco y negro para que no se gaste
+       tinta de color, y con lineas punteadas para saber por donde
+       recortar. */
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f0f0f0;
+      font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      color: #111;
+    }
+
+    .barra {
+      max-width: 820px;
+      margin: 0 auto 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    }
+
+    .barra h1 { font-size: 1.15rem; margin: 0; }
+    .barra p { margin: 4px 0 0; color: #666; font-size: .9rem; }
+
+    .barra__acciones { margin-left: auto; display: flex; gap: 10px; }
+
+    .boton {
+      border: none;
+      border-radius: 999px;
+      background: #1a6e4a;
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px 22px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .boton--gris { background: #fff; color: #111; border: 1px solid #ccc; }
+
+    .hoja {
+      max-width: 820px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 22px;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .bono {
+      border: 2px dashed #111;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+      /* Bordes compartidos: se recorta una sola vez entre dos bonos. */
+      margin: -1px;
+      background: #fff;
+      min-height: 150px;
+    }
+
+    /* La franja rayada de la izquierda, como en el ejemplo. */
+    .bono__franja {
+      width: 20px;
+      flex-shrink: 0;
+      background: repeating-linear-gradient(
+        -45deg, #111, #111 2px, #fff 2px, #fff 7px
+      );
+    }
+
+    .bono__cuerpo {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .bono__negocio {
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .bono__titulo {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+
+    .bono__linea {
+      border-top: 1px dashed #111;
+      margin: 9px 0 7px;
+    }
+
+    .bono__firma {
+      font-size: .55rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      text-align: left;
+      color: #333;
+    }
+
+    .bono__espacio-firma {
+      border-bottom: 1px solid #111;
+      height: 20px;
+      margin-top: 2px;
+    }
+
+    .bono__pie {
+      margin-top: auto;
+      padding-top: 8px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: .58rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .bono__numero {
+      font-size: .72rem;
+      font-weight: 800;
+    }
+
+    /* Las "barras" del ejemplo: decorativas, no es un codigo real.
+       Sirven para que el bono se vea dificil de copiar a mano. */
+    .bono__barras {
+      height: 22px;
+      flex: 1;
+      max-width: 120px;
+      background: repeating-linear-gradient(
+        90deg, #111 0 2px, #fff 2px 4px, #111 4px 5px, #fff 5px 9px,
+        #111 9px 12px, #fff 12px 13px
+      );
+    }
+
+    @media print {
+      /* Se quita todo lo de pantalla: solo quedan los bonos. */
+      body { background: #fff; padding: 0; }
+      .barra { display: none; }
+      .hoja {
+        max-width: none;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 10mm;
+        gap: 0;
+      }
+      .bono {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        min-height: 46mm;
+      }
+      @page { margin: 8mm; }
+    }
+
+    @media (max-width: 620px) {
+      .hoja { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="barra">
+    <div>
+      <h1>{{ entrega.cantidad }} bonos para {{ entrega.empresa }}</h1>
+      <p>
+        {{ vigencia }} · {{ entrega.precio_unitario|pesos }} cada uno ·
+        Se imprimen 2 por fila. Recorta por la linea punteada.
+      </p>
+    </div>
+    <div class="barra__acciones">
+      <a class="boton boton--gris" href="{{ url_for('convenio_detalle', id_convenio=entrega.convenio_id) }}">
+        Volver
+      </a>
+      <button class="boton" type="button" onclick="window.print()">Imprimir</button>
+    </div>
+  </div>
+
+  <div class="hoja">
+    {% for numero in numeros %}
+      <div class="bono">
+        <div class="bono__franja"></div>
+        <div class="bono__cuerpo">
+          <div class="bono__negocio">Almuerzos Marisol</div>
+          <div class="bono__titulo">Vale por<br>un almuerzo</div>
+          <div class="bono__linea"></div>
+          <div class="bono__firma">
+            Firmado por
+            <div class="bono__espacio-firma"></div>
+          </div>
+          <div class="bono__pie">
+            <span class="bono__barras"></span>
+            <span>
+              <span class="bono__numero">N {{ "%03d"|format(numero) }}</span><br>
+              {{ vigencia }}
+            </span>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+</body>
+</html>

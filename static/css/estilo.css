@@ -2046,6 +2046,63 @@ tbody tr:hover {
 }
 
 /* -------------------------------------------------------------------
+   15e. Convenios (bonos de empresa)
+   ------------------------------------------------------------------- */
+
+/* Aviso de una linea para explicar algo que podria confundir, como
+   que los almuerzos de convenio no suman a las ventas del dia. */
+.aviso-linea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 13px 16px;
+  border-radius: var(--radio-md);
+  background: var(--ambar-100);
+  border: 1px solid var(--ambar-borde);
+  color: var(--ambar-texto);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.aviso-linea svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.aviso-linea a {
+  margin-left: auto;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.bonos-restantes {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--verde-texto);
+}
+
+/* Cuanto se ha consumido del taco de bonos, de un vistazo. */
+.bonos-barra {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--pista);
+  overflow: hidden;
+}
+
+.bonos-barra__usado {
+  height: 100%;
+  width: var(--ancho, 0%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--verde-500), var(--verde-700));
+  animation: estirar 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* -------------------------------------------------------------------
    16. Animaciones
    ------------------------------------------------------------------- */
 

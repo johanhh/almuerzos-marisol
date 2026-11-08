@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block titulo %}Convenios - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div>
+    <h1 class="pagina__titulo">Convenios</h1>
+    <p class="pagina__sub">Empresas que compran almuerzos por bonos pagados por adelantado.</p>
+  </div>
+</div>
+
+{% if convenios %}
+  <section class="resumen" style="margin-bottom:16px">
+    <div class="kpi kpi--destacada">
+      <div class="kpi__cabeza">
+        <span class="kpi__etiqueta">Bonos sin usar</span>
+      </div>
+      <span class="kpi__numero">{{ bonos_por_usar }}</span>
+      <div class="kpi__pie">Almuerzos ya pagados que faltan por entregar</div>
+    </div>
+  </section>
+
+  <div class="lista-empleados">
+    {% for c in convenios %}
+      <div class="tarjeta {% if not c.activo %}fila-apagada{% endif %}">
+        <div class="empleado__cabeza">
+          <span class="avatar avatar--{{ c.empresa|color_avatar }}">{{ c.empresa|iniciales }}</span>
+          <div class="lista__cuerpo">
+            <div class="empleado__nombre">{{ c.empresa }}</div>
+            <div class="lista__sub">
+              {% if c.contacto %}{{ c.contacto }}{% endif %}
+              {% if c.telefono %}{% if c.contacto %} · {% endif %}{{ c.telefono }}{% endif %}
+              {% if c.precio_almuerzo %}
+                {% if c.contacto or c.telefono %} · {% endif %}{{ c.precio_almuerzo|pesos }} por almuerzo
+              {% endif %}
+              {% if not c.activo %} · Convenio terminado{% endif %}
+            </div>
+          </div>
+          <div class="empleado__pagado">
+            <span class="empleado__pagado-etiqueta">Le quedan</span>
+            <span class="bonos-restantes">{{ c.restantes }}</span>
+            <span class="lista__sub">de {{ c.entregados }} entregados</span>
+          </div>
+        </div>
+
+        <div class="bonos-barra">
+          <div class="bonos-barra__usado"
+               style="--ancho: {{ (c.usados / c.entregados * 100)|round(1) if c.entregados else 0 }}%"></div>
+        </div>
+        <p class="campo__ayuda" style="margin-top:8px">
+          {{ c.usados }} usado{{ 's' if c.usados != 1 else '' }} ·
+          {{ c.restantes }} por usar ·
+          {{ c.pagado|pesos }} cobrado en total
+        </p>
+
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+          <a class="boton" href="{{ url_for('convenio_detalle', id_convenio=c.id) }}">
+            Abrir
+          </a>
+          <form method="post" action="{{ url_for('convenios_alternar', id_convenio=c.id) }}">
+            <button type="submit" class="boton boton--secundario boton--pequeno">
+              {{ 'Terminar convenio' if c.activo else 'Reactivar' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="vacio">
+    <span class="vacio__icono"><svg><use href="#i-bonos"/></svg></span>
+    <p class="vacio__texto">
+      Todavia no hay convenios. Agrega la primera empresa abajo para llevar el control
+      de los bonos que le entregas y los que te devuelven.
+    </p>
+  </div>
+{% endif %}
+
+<div class="tarjeta" style="margin-top:16px">
+  <div class="tarjeta__cabeza">
+    <h2 class="tarjeta__titulo">Agregar una empresa</h2>
+  </div>
+  <form method="post" action="{{ url_for('convenios_agregar') }}" class="agregar-plato">
+    <div class="campo">
+      <label class="campo__etiqueta" for="empresa">Nombre de la empresa</label>
+      <input type="text" id="empresa" name="empresa" placeholder="Por ejemplo: Ferreteria El Tornillo"
+             autocomplete="off" required>
+    </div>
+    <div class="campo">
+      <label class="campo__etiqueta" for="contacto">Con quien se habla (opcional)</label>
+      <input type="text" id="contacto" name="contacto" placeholder="Por ejemplo: Dona Lucia"
+             autocomplete="off">
+    </div>
+    <div class="campo">
+      <label class="campo__etiqueta" for="telefono">Telefono (opcional)</label>
+      <input type="text" id="telefono" name="telefono" placeholder="Por ejemplo: 3001234567"
+             autocomplete="off">
+    </div>
+    <div class="campo">
+      <label class="campo__etiqueta" for="precio_almuerzo">Precio acordado por almuerzo</label>
+      <input type="text" inputmode="numeric" id="precio_almuerzo" name="precio_almuerzo"
+             placeholder="Por ejemplo 16000" autocomplete="off">
+    </div>
+    <button type="submit" class="boton">
+      <svg><use href="#i-venta"/></svg> Agregar
+    </button>
+  </form>
+  <p class="campo__ayuda" style="margin-top:12px">
+    El precio acordado puede ser distinto al del publico. Queda puesto por defecto cuando
+    entregues bonos, y lo puedes cambiar en cada entrega.
+  </p>
+</div>
+
+{% endblock %}

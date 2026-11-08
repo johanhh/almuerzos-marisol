@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block titulo %}{{ convenio.empresa }} - Almuerzos Marisol{% endblock %}
+{% block content %}
+
+<div class="pagina__cabeza">
+  <div style="display:flex; align-items:center; gap:16px">
+    <span class="avatar avatar--{{ convenio.empresa|color_avatar }}"
+          style="width:60px; height:60px; font-size:1.25rem">{{ convenio.empresa|iniciales }}</span>
+    <div>
+      <h1 class="pagina__titulo">{{ convenio.empresa }}</h1>
+      <p class="pagina__sub">
+        {% if convenio.contacto %}{{ convenio.contacto }}{% endif %}
+        {% if convenio.telefono %}{% if convenio.contacto %} · {% endif %}{{ convenio.telefono }}{% endif %}
+        {% if not convenio.contacto and not convenio.telefono %}Sin datos de contacto{% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="pagina__acciones">
+    <a class="boton boton--secundario" href="{{ url_for('convenios') }}">&larr; Volver</a>
+  </div>
+</div>
+
+<section class="resumen" style="margin-bottom:16px">
+  <div class="kpi kpi--destacada">
+    <div class="kpi__cabeza"><span class="kpi__etiqueta">Bonos sin usar</span></div>
+    <span class="kpi__numero">{{ convenio.restantes }}</span>
+    <div class="kpi__pie">Almuerzos ya pagados que faltan por entregar</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__cabeza"><span class="kpi__etiqueta">Ya consumidos</span></div>
+    <span class="kpi__numero">{{ convenio.usados }}</span>
+    <div class="kpi__pie">De {{ convenio.entregados }} entregados</div>
+  </div>
+  <div class="kpi kpi--venta">
+    <div class="kpi__cabeza"><span class="kpi__etiqueta">Cobrado en total</span></div>
+    <span class="kpi__numero">{{ convenio.pagado|pesos }}</span>
+    <div class="kpi__pie">Pagado por adelantado</div>
+  </div>
+</section>
+
+<div class="rejilla rejilla--1-1" style="margin-top:0">
+  <div class="columna">
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Anotar almuerzos entregados</h2>
+      </div>
+      <p class="campo__ayuda" style="margin-bottom:14px">
+        Cuando el domiciliario vuelva con los bonos recogidos, anota cuantos fueron.
+        Esto <strong>no suma plata</strong>: esos almuerzos ya se cobraron.
+      </p>
+      <form method="post" action="{{ url_for('convenios_consumir', id_convenio=convenio.id) }}"
+            class="agregar-plato">
+        <div class="campo">
+          <label class="campo__etiqueta" for="cantidad-c">Cuantos bonos trajo</label>
+          <input type="text" inputmode="numeric" id="cantidad-c" name="cantidad"
+                 value="1" autocomplete="off">
+        </div>
+        <div class="campo">
+          <label class="campo__etiqueta" for="fecha-c">De que dia</label>
+          <input type="date" id="fecha-c" name="fecha" value="{{ hoy_iso }}">
+        </div>
+        <button type="submit" class="boton">
+          <svg><use href="#i-check"/></svg> Anotar
+        </button>
+      </form>
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Entregar un taco de bonos</h2>
+      </div>
+      <p class="campo__ayuda" style="margin-bottom:14px">
+        Esto <strong>si cobra</strong>: se registra como venta del dia, porque la empresa
+        paga por adelantado.
+      </p>
+      <form method="post" action="{{ url_for('convenios_entregar', id_convenio=convenio.id) }}"
+            class="agregar-plato">
+        <div class="campo">
+          <label class="campo__etiqueta" for="cantidad-e">Cuantos bonos</label>
+          <input type="text" inputmode="numeric" id="cantidad-e" name="cantidad"
+                 placeholder="Por ejemplo 140" autocomplete="off" required>
+        </div>
+        <div class="campo">
+          <label class="campo__etiqueta" for="precio_unitario">Precio por almuerzo</label>
+          <input type="text" inputmode="numeric" id="precio_unitario" name="precio_unitario"
+                 value="{{ (convenio.precio_almuerzo|pesos)[2:] if convenio.precio_almuerzo else '' }}"
+                 placeholder="Por ejemplo 16000" autocomplete="off" required>
+        </div>
+        <div class="campo">
+          <label class="campo__etiqueta" for="fecha-e">Fecha</label>
+          <input type="date" id="fecha-e" name="fecha" value="{{ hoy_iso }}">
+        </div>
+        <div class="campo">
+          <label class="campo__etiqueta" for="nota-e">Nota (opcional)</label>
+          <input type="text" id="nota-e" name="nota" placeholder="Por ejemplo: bonos de noviembre"
+                 autocomplete="off">
+        </div>
+        <button type="submit" class="boton">
+          <svg><use href="#i-venta"/></svg> Entregar y cobrar
+        </button>
+      </form>
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta__cabeza">
+        <h2 class="tarjeta__titulo">Tacos entregados</h2>
+      </div>
+      {% if entregas %}
+        <div class="lista">
+          {% for e in entregas %}
+            <div class="lista__fila">
+              <span class="lista__icono lista__icono--venta">
+                <svg><use href="#i-bonos"/></svg>
+              </span>
+              <div class="lista__cuerpo">
+                <div class="lista__titulo">{{ e.cantidad }} bonos a {{ e.precio_unitario|pesos }}</div>
+                <div class="lista__sub">
+                  {{ e.fecha|fecha_bonita }}{% if e.nota %} · {{ e.nota }}{% endif %}
+                </div>
+              </div>
+              <a class="boton boton--secundario boton--pequeno"
+                 href="{{ url_for('bonos_imprimir', id_entrega=e.id) }}" target="_blank" rel="noopener">
+                Imprimir
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="vacio">
+          <span class="vacio__icono"><svg><use href="#i-bonos"/></svg></span>
+          <p class="vacio__texto">Todavia no le has entregado bonos a esta empresa.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2 class="tarjeta__titulo">Almuerzos entregados</h2>
+    </div>
+    {% if consumos %}
+      <div class="lista">
+        {% for c in consumos %}
+          <div class="lista__fila">
+            <span class="lista__icono lista__icono--fiado">
+              <svg><use href="#i-check"/></svg>
+            </span>
+            <div class="lista__cuerpo">
+              <div class="lista__titulo">
+                {{ c.cantidad }} almuerzo{{ 's' if c.cantidad != 1 else '' }}
+              </div>
+              <div class="lista__sub">
+                {{ c.fecha|fecha_bonita }}{% if c.nota %} · {{ c.nota }}{% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vacio">
+        <span class="vacio__icono"><svg><use href="#i-vacio"/></svg></span>
+        <p class="vacio__texto">
+          Todavia no has anotado almuerzos entregados de esta empresa.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

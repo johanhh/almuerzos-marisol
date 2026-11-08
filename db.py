@@ -31,6 +31,9 @@ CATEGORIAS_INGRESO = [
     # No se escoge a mano en el formulario: se escoge el producto y la
     # app pone esta categoria sola, guardando ademas cual producto fue.
     ("producto", "Productos del catalogo"),
+    # El cobro de un talonario de bonos a una empresa. La pone la app
+    # sola desde la pantalla de Convenios.
+    ("bonos", "Bonos de convenio"),
 ]
 
 CATEGORIAS_GASTO = [
@@ -49,7 +52,7 @@ CATEGORIAS_GASTO = [
 # Categorias que NO se escogen a mano en el formulario de venta/gasto
 # porque las pone la app sola desde otra pantalla. Siguen en las listas
 # de arriba para que los reportes y el historial sepan como se llaman.
-CATEGORIAS_AUTOMATICAS = {"producto", "empleados"}
+CATEGORIAS_AUTOMATICAS = {"producto", "empleados", "bonos"}
 
 # Cada cuanto se le paga a un empleado. Es solo una referencia para
 # saber cuanto deberia llevar pagado: el monto de cada pago se puede
@@ -298,6 +301,73 @@ def init_db():
         )
         conexion.execute(
             "CREATE INDEX IF NOT EXISTS idx_pagos_empleado ON pagos_empleado (empleado_id)"
+        )
+
+        # Convenios con empresas que compran almuerzos por bonos.
+        #
+        # Como funciona en la vida real: a comienzo de mes el negocio le
+        # entrega a la empresa un taco de bonos de papel ("vale por un
+        # almuerzo del dia"), la empresa los reparte entre sus
+        # empleados, y cada vez que alguien pide, el domiciliario
+        # recoge el bono. Los bonos recogidos son la prueba fisica de
+        # cuantos almuerzos se consumieron.
+        conexion.execute(
+            """
+            CREATE TABLE IF NOT EXISTS convenios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                empresa TEXT NOT NULL,
+                contacto TEXT,
+                telefono TEXT,
+                precio_almuerzo REAL,
+                activo INTEGER NOT NULL DEFAULT 1,
+                fecha_creacion TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+            """
+        )
+
+        # Cada vez que se le entrega un taco de bonos a una empresa.
+        #
+        # La empresa paga por adelantado, asi que la entrega TAMBIEN es
+        # una venta: por eso apunta a la transaccion de ingreso que la
+        # cobra, igual que un pago de nomina apunta a su gasto. El
+        # consumo posterior de esos bonos NO vuelve a sumar plata,
+        # porque esa plata ya entro aqui.
+        conexion.execute(
+            """
+            CREATE TABLE IF NOT EXISTS entregas_bonos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                convenio_id INTEGER NOT NULL REFERENCES convenios(id),
+                fecha TEXT NOT NULL,
+                cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+                precio_unitario REAL NOT NULL CHECK (precio_unitario > 0),
+                nota TEXT,
+                transaccion_id INTEGER REFERENCES transacciones(id) ON DELETE CASCADE,
+                fecha_creacion TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+            """
+        )
+
+        # Los bonos que el domiciliario trae de vuelta. Se anota cuantos
+        # y de que dia, no cual bono exactamente: contar es lo que se
+        # necesita para cuadrar con la empresa, y escribir un numero por
+        # cada almuerzo seria mucho trabajo diario.
+        conexion.execute(
+            """
+            CREATE TABLE IF NOT EXISTS consumos_bonos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                convenio_id INTEGER NOT NULL REFERENCES convenios(id),
+                fecha TEXT NOT NULL,
+                cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+                nota TEXT,
+                fecha_creacion TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+            """
+        )
+        conexion.execute(
+            "CREATE INDEX IF NOT EXISTS idx_consumos_convenio ON consumos_bonos (convenio_id)"
+        )
+        conexion.execute(
+            "CREATE INDEX IF NOT EXISTS idx_consumos_fecha ON consumos_bonos (fecha)"
         )
 
         conexion.execute(

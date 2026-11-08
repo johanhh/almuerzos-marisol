@@ -81,6 +81,9 @@
   <symbol id="i-plata" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
     <rect x="2.5" y="6" width="19" height="12" rx="3"/><circle cx="12" cy="12" r="2.6"/>
   </symbol>
+  <symbol id="i-bonos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 8.5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1.3a2.2 2.2 0 0 0 0 4.4v1.3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.3a2.2 2.2 0 0 0 0-4.4Z"/><path d="M14.5 9.5v5"/>
+  </symbol>
   <symbol id="i-catalogo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
     <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H11v16H6.5A2.5 2.5 0 0 0 4 22Z"/><path d="M20 6.5A2.5 2.5 0 0 0 17.5 4H13v16h4.5a2.5 2.5 0 0 1 2.5 2Z"/>
   </symbol>
@@ -148,6 +151,10 @@
           <a class="nav__enlace {% if request.endpoint == 'catalogo' %}nav__enlace--activo{% endif %}"
              href="{{ url_for('catalogo') }}">
             <svg class="nav__icono"><use href="#i-catalogo"/></svg> Catalogo
+          </a>
+          <a class="nav__enlace {% if request.endpoint in ('convenios', 'convenio_detalle') %}nav__enlace--activo{% endif %}"
+             href="{{ url_for('convenios') }}">
+            <svg class="nav__icono"><use href="#i-bonos"/></svg> Convenios
           </a>
           <a class="nav__enlace {% if request.endpoint == 'empleados' %}nav__enlace--activo{% endif %}"
              href="{{ url_for('empleados') }}">

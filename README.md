@@ -32,6 +32,9 @@ antes.
   del mes, con selector de mes.
 - **Inicio**: resumen de hoy y de los últimos 7 días, el menú del día
   actual, y los últimos movimientos registrados.
+- **Convenios**: empresas que compran almuerzos con bonos pagados por
+  adelantado. Se entrega un taco de bonos (que la app imprime), se
+  anota cuántos van volviendo, y se ve cuántos quedan sin usar.
 - **Reportes con filtro por categoría**: además del mes, se puede
   escoger una sola categoría (ej. "Arriendo") y tanto las tarjetas de
   totales como la tabla de abajo quedan limitadas a esa categoría.
@@ -134,6 +137,49 @@ secciones, más de las 6-7 que recomendaba la guía de diseño original.
 En vez de esconder algunas en un submenú (que la guía prohíbe), se
 partió en dos grupos visibles, "Menú" y "El negocio". Todo sigue a un
 solo clic.
+
+## Convenios con empresas (bonos de almuerzo)
+
+Una empresa compra almuerzos para sus empleados con bonos de papel. El
+negocio le entrega un taco de bonos ("vale por un almuerzo del día") a
+comienzo de mes, la empresa los reparte, y cada vez que un empleado
+pide, el domiciliario recoge el bono. Los bonos recogidos son la prueba
+física de cuántos almuerzos se consumieron.
+
+**La decisión importante es cuándo se cuenta la plata**, y aquí la
+empresa paga por adelantado:
+
+- **Entregar el taco sí cobra.** Entregar 140 bonos a $16.000 registra
+  una venta de $2.240.000 ese día, con categoría "Bonos de convenio".
+  La entrega apunta a esa venta con `transaccion_id`, igual que los
+  pagos de nómina apuntan a su gasto.
+- **Consumir los bonos NO cobra.** Cuando el domiciliario trae 6 bonos,
+  esos 6 almuerzos solo descuentan del saldo. No crean ninguna
+  transacción: esa plata ya entró cuando se vendió el taco. Si
+  sumaran, se estaría contando la misma plata dos veces y las ventas
+  del mes quedarían infladas.
+- **Por eso el inicio avisa aparte** cuántos almuerzos de convenio se
+  entregaron hoy. Un día con 20 almuerzos de convenio y nada más
+  mostraría "$0 en ventas", lo cual es contablemente correcto pero
+  confuso: esos almuerzos sí se cocinaron.
+- Si se borra del historial la venta del taco, la entrega de bonos se
+  va con ella (`ON DELETE CASCADE`).
+- Si se anotan más bonos consumidos de los que quedaban, la app **avisa
+  pero igual lo guarda**: puede pasar de verdad (un bono viejo, o falta
+  registrar una entrega), y es mejor que Marisol se entere en el
+  momento y no cuando los números no cuadren a fin de mes.
+
+**Los bonos se imprimen desde la app** (`bonos_imprimir.html`): una hoja
+con dos bonos por fila, en blanco y negro, con líneas punteadas para
+recortar. Esa plantilla **no usa el estilo del resto de la app** a
+propósito — va al papel, no a la pantalla — y trae sus propias reglas
+`@media print`.
+
+Los números impresos en cada bono (N 001, N 002...) **no se guardan en
+la base de datos**: como el control se lleva contando cuántos bonos
+vuelven y no cuál bono, guardarlos uno por uno sería cargar la base con
+datos que nadie consulta. El número sirve para el control físico entre
+el negocio y la empresa.
 
 ## Capital inicial y plata en caja
 
